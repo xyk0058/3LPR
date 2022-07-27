@@ -1,0 +1,93 @@
+import torch
+import torchvision.transforms as transforms
+import datasets
+import numpy as np
+
+def mixup_data(x, y, alpha=1.0, device='cuda'):
+    '''Returns mixed inputs, pairs of targets, and lambda'''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+        lam = max(lam, 1-lam)
+    else:
+        lam = 1
+
+    device = x.get_device()
+    batch_size = x.size()[0]
+
+    index = torch.randperm(batch_size).to(device)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam, index
+
+
+def make_data_loader(args, no_aug=False, transform=None, **kwargs):
+    
+    if args.dataset == 'cifar10' or args.dataset == 'imblancecifar10':
+        mean = [0.4914, 0.4822, 0.4465]
+        std = [0.2023, 0.1994, 0.2010]
+    elif args.dataset == 'cifar100' or args.dataset == 'imblancecifar100':
+        mean = [0.5071, 0.4867, 0.4408]
+        std = [0.2675, 0.2565, 0.2761]
+    elif args.dataset == 'miniimagenet':
+        mean = [0.4728, 0.4487, 0.4031]
+        std = [0.2744, 0.2663 , 0.2806]
+    elif args.dataset == 'imblancestl10':
+        mean = [0.4914, 0.4822, 0.4465]
+        std = [0.2023, 0.1994, 0.2010]
+    elif args.dataset == 'ImbSmallImageNet127_x32' or args.dataset == 'ImbSmallImageNet127_x64':
+        mean=[0.485, 0.456, 0.406]
+        std=[0.229, 0.224, 0.225]
+    
+    size = 32
+    if args.dataset == 'miniimagenet':
+        size = 84
+    elif args.dataset == 'ImbSmallImageNet127_x64':
+        size = 64
+
+    transform_train = transforms.Compose([
+        transforms.RandomResizedCrop(size),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std),
+    ])
+
+    transform_test = transforms.Compose([
+        transforms.Resize(size),
+        transforms.CenterCrop(size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+
+
+    if args.dataset == "cifar10":
+        trainset = datasets.cifar10(transform=transform_train, regim='train')
+        testset = datasets.cifar10(transform=transform_test, regim='val')
+    elif args.dataset == "cifar100":
+        trainset = datasets.cifar100(transform=transform_train, regim='train')
+        testset = datasets.cifar100(transform=transform_test, regim='val')
+    elif args.dataset == "miniimagenet":
+        trainset, testset = datasets.miniimagenet(transform=transform_train, transform_test=transform_test)
+    elif args.dataset == "imblancecifar10":
+        trainset = datasets.imblancecifar10(transform=transform_train, regim='train', imb_factor=args.imb_factor)
+        testset = datasets.imblancecifar10(transform=transform_test, regim='val', imb_factor=args.imb_factor)
+    elif args.dataset == "imblancecifar100":
+        trainset = datasets.imblancecifar100(transform=transform_train, regim='train', imb_factor=args.imb_factor)
+        testset = datasets.imblancecifar100(transform=transform_test, regim='val', imb_factor=args.imb_factor)
+    elif args.dataset == "imblancestl10":
+        trainset = datasets.imblancestl10(transform=transform_train, regim='train', imb_factor=args.imb_factor)
+        testset = datasets.imblancestl10(transform=transform_test, regim='val', imb_factor=args.imb_factor)
+    elif args.dataset == "ImbSmallImageNet127_x32":
+        trainset = datasets.smallimagenet127_x32(transform=transform_train, regim='train')
+        testset = datasets.smallimagenet127_x32(transform=transform_test, regim='val')
+    elif args.dataset == "ImbSmallImageNet127_x64":
+        trainset = datasets.smallimagenet127_x64(transform=transform_train, regim='train')
+        testset = datasets.smallimagenet127_x64(transform=transform_test, regim='val')
+    else:
+        raise NotImplementedError("Dataset {} in not implemented".format(args.dataset))
+    
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, **kwargs)
+    return train_loader, test_loader
