@@ -1,4 +1,5 @@
-# Unofficial Pytorch implementation for *iMix: A Strategy for regularizing Contrastive Representation Learning*.
+# Stage 1
+Unofficial Pytorch implementation for *iMix: A Strategy for regularizing Contrastive Representation Learning*.
 Paper: https://openreview.net/pdf?id=T6AxtOaWydQ
 Code based on https://github.com/PaulAlbert31/iMix
 
